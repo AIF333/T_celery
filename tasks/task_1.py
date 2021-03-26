@@ -1,18 +1,20 @@
 import time
 import datetime
 from hdy_celery.hdy_celery import app
+from hdy_celery.my_celery import MyTask111
 
 
-@app.task(queue='user_quick', priority=0)
+@app.task(priority=0, base=MyTask111)
 def test_1(a, b):
     print("test_1 start :%s" % datetime.datetime.now())
     print('a=%s, b=%s' % (a, b))
     time.sleep(1)
     print("test_1 end :%s" % datetime.datetime.now())
+    raise Exception('this is a error')
     return {'test_1': 1}
 
 
-@app.task(bind=True, queue='user_normal', priority=6)
+@app.task(bind=True, priority=6)
 def test_2_bind(self, a, b):
     # eg: task=' tasks.task_1.test_2_bind', id='cc44ed59-6c03-4440-947c-671747b7d799', routing_key='user_quick.task'
     # delivery_info: {'exchange': 'task', 'routing_key': 'user_quick.task', 'priority': 0, 'redelivered': None}

@@ -28,7 +28,7 @@ celery_conf = {
 
 include = [
     'tasks.task_1',
-    # 'tasks.task_2',
+    'tasks.task_2',
 ]
 
 task_conf = {
