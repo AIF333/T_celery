@@ -13,9 +13,9 @@ class Mycelery(Celery):
     def task(self, *args, **opts):
         """指定celery的基类，这个是在项目启动时调用"""
         # 指定了base必须继承MyTask
-        base = opts.get('base', MyTask)
-        if not issubclass(base, MyTask):
-            raise Exception("base=%s is not MyTask's subclass" % base)
+        base = opts.get('base', BaseTask)
+        if not issubclass(base, BaseTask):
+            raise Exception("base=%s is not BaseTask's subclass" % base)
         opts['base'] = base
 
         # 不允许用修改任务名称，强制使用默认 eg: 'tasks.task_1.test_3_queue'， 后面的统一处理和动态干预都依赖这个名称
@@ -55,29 +55,36 @@ class Mycelery(Celery):
             print('queue=%s, func=%s, is stop in config, pass' % (queue_name, name))
 
 
-class MyTask(Task):
+class BaseTask(Task):
+    """
+    好队友的任务处理后的钩子基类， 这里定义通用方法，子类可以自定义继承
+    说明： after_return 这个不需要，相当于 on_failure/on_success 的后手，且当 on_failure/on_success有内部错误时是无法进入的
+    """
 
     # 任务执行
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """
-        任务失败时
-        :param exc:
+        任务失败时，记录错误日志
+        :param exc: 错误简短描述，是对象，str(exc)
         :param task_id:
         :param args:
         :param kwargs:
-        :param einfo: 错误异常堆栈
-        :return:
+        :param einfo: 错误异常堆栈，，是对象str(einfo)
+        常用: self，name 方法全名，eg: tasks.task_1.test_1
         """
-        print('on_failure: --------')
-        err_obj = CeleryErrorRecord.objects.filter(task_id=task_id).first()
-        err_obj = err_obj or CeleryErrorRecord()
-        err_obj.task_id = task_id
-        err_obj.full_func = self.name
-        err_obj.func_params = {'args': args, 'kwargs': kwargs}
-        err_obj.exc = str(exc)
-        err_obj.error_info = str(einfo)
-        err_obj.save()
-        print(err_obj)
+        try:
+            print('on_failure: --------%s' % self.name)
+            err_obj = CeleryErrorRecord.objects.filter(task_id=task_id).first()
+            err_obj = err_obj or CeleryErrorRecord()
+            err_obj.task_id = task_id
+            err_obj.full_func = self.name
+            err_obj.func_params = {'args': args, 'kwargs': kwargs}
+            err_obj.exc = str(exc)
+            err_obj.error_info = str(einfo)
+            err_obj.save()
+        except Exception as e:
+            # TODO yeteng 20210326 发送钉钉通知？
+            print(e)
 
     def on_success(self, retval, task_id, args, kwargs):
         """
@@ -86,9 +93,9 @@ class MyTask(Task):
         :param task_id:
         :param args:
         :param kwargs:
-        :return:
+        常用: self，name 方法全名，eg: tasks.task_1.test_1
         """
-        print('on_success: --------')
+        print('on_success: --------%s' % self.request.task)
         # print('self=%s， self__dict__=%s, self.request.task=%s, self.request=%s' % (self, self.__dict__, self.request.task, self.request))
         # print('retval=%s' % retval)
         # print('task_id=%s' % task_id)
@@ -103,19 +110,15 @@ class MyTask(Task):
         :param args:
         :param kwargs:
         :param einfo: 错误异常堆栈
-        :return:
+        常用: self，name 方法全名，eg: tasks.task_1.test_1
         """
-        print('on_retry: --------')
+        print('on_retry: --------%s' % self.request.task)
         # print('self=%s， self__dict__=%s, self.request.task=%s, self.request=%s' % (self, self.__dict__, self.request.task, self.request))
         # print('exc=%s' % exc)
         # print('task_id=%s' % task_id)
         # print('args= ', args)
         # print('kwargs=%s' % kwargs)
         # print('einfo=%s' % einfo)
-
-
-class MyTask111(MyTask):
-    pass
 
 
 class CheckTask(object):
